@@ -1,23 +1,23 @@
+---
+---
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mis PDFs – mercadeoabt</title>
+  <title>PDFs de mercadeoabt</title>
   <style>
-    :root { --bg:#f7f7f8; --fg:#111; --muted:#555; --card:#fff; --border:#e5e7eb; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--fg); }
-    .wrap { max-width: 840px; margin: 48px auto; padding: 0 20px; }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow: 0 2px 10px rgba(0,0,0,.03); }
-    h1 { margin:0 0 8px; font-size:28px; }
-    p  { color:var(--muted); margin:0 0 20px; }
-    ul { list-style:none; padding:0; margin:0; }
-    li { border-top:1px solid var(--border); }
-    li:first-child { border-top:0; }
-    a  { display:flex; justify-content:space-between; align-items:center; gap:12px;
-         padding:16px 0; text-decoration:none; color:#0a58ca; word-break:break-word; }
-    .meta { color:var(--muted); font-variant-numeric: tabular-nums; white-space:nowrap; }
-    footer { margin-top:16px; color:var(--muted); font-size:13px; text-align:center; }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f7f7f8;color:#111}
+    .wrap{max-width:840px;margin:48px auto;padding:0 20px}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,.03)}
+    h1{margin:0 0 8px;font-size:28px}
+    p{color:#555;margin:0 0 20px}
+    ul{list-style:none;padding:0;margin:0}
+    li{border-top:1px solid #e5e7eb}
+    li:first-child{border-top:0}
+    a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0;text-decoration:none;color:#0a58ca;word-break:break-word}
+    .meta{color:#555;font-variant-numeric:tabular-nums;white-space:nowrap}
   </style>
 </head>
 <body>
@@ -27,11 +27,21 @@
       <p>Lista generada automáticamente desde este repositorio.</p>
 
       <ul>
-        {% assign pdfs = site.static_files | where: "extname", ".pdf" | sort: "name" %}
+        {% assign pdfs = site.static_files | where_exp: "f", "f.extname == '.pdf' or f.extname == '.PDF'" | sort: "name" %}
         {% if pdfs.size == 0 %}
           <li><a href="#" onclick="return false;">(Aún no hay PDFs en el repositorio)</a></li>
         {% else %}
           {% for file in pdfs %}
             <li>
               <a href="{{ file.path | relative_url }}" target="_blank" rel="noopener">
-                <s
+                <span>{{ file.name | replace: ".pdf","" | replace: ".PDF","" | replace: "_"," " | replace: "-"," " }}</span>
+                {% if file.modified_time %}<span class="meta">{{ file.modified_time | date: "%Y-%m-%d" }}</span>{% endif %}
+              </a>
+            </li>
+          {% endfor %}
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
