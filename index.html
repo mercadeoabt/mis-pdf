@@ -1,6 +1,3 @@
----
----
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -16,32 +13,58 @@
     ul{list-style:none;padding:0;margin:0}
     li{border-top:1px solid #e5e7eb}
     li:first-child{border-top:0}
-    a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0;text-decoration:none;color:#0a58ca;word-break:break-word}
-    .meta{color:#555;font-variant-numeric:tabular-nums;white-space:nowrap}
+    a{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;text-decoration:none;color:#0a58ca;word-break:break-word}
+    .empty{color:#555}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
       <h1>📂 PDFs de mercadeoabt</h1>
-      <p>Lista generada automáticamente desde este repositorio.</p>
-
-      <ul>
-        {% assign pdfs = site.static_files | where_exp: "f", "f.extname == '.pdf' or f.extname == '.PDF'" | sort: "name" %}
-        {% if pdfs.size == 0 %}
-          <li><a href="#" onclick="return false;">(Aún no hay PDFs en el repositorio)</a></li>
-        {% else %}
-          {% for file in pdfs %}
-            <li>
-              <a href="{{ file.path | relative_url }}" target="_blank" rel="noopener">
-                <span>{{ file.name | replace: ".pdf","" | replace: ".PDF","" | replace: "_"," " | replace: "-"," " }}</span>
-                {% if file.modified_time %}<span class="meta">{{ file.modified_time | date: "%Y-%m-%d" }}</span>{% endif %}
-              </a>
-            </li>
-          {% endfor %}
-        {% endif %}
-      </ul>
+      <p>Listado automático sin Jekyll.</p>
+      <ul id="listado"></ul>
+      <p class="empty" id="vacio" style="display:none;">(Aún no hay PDFs públicos en este repositorio)</p>
     </div>
   </div>
+
+  <script>
+    (async () => {
+      const owner = "mercadeoabt";
+      const repo  = "mis-pdf";
+      const branch = "main";
+      const api = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+
+      try {
+        const res = await fetch(api);
+        const data = await res.json();
+        const tree = Array.isArray(data.tree) ? data.tree : [];
+        const pdfs = tree
+          .filter(n => n.type === "blob" && /\.pdf$/i.test(n.path))
+          .sort((a,b) => a.path.localeCompare(b.path));
+
+        const ul = document.getElementById("listado");
+        const empty = document.getElementById("vacio");
+        if (pdfs.length === 0) { empty.style.display = "block"; return; }
+
+        const base = location.origin + location.pathname; // https://mercadeoabt.github.io/mis-pdf/
+        for (const f of pdfs) {
+          const li = document.createElement("li");
+          const a  = document.createElement("a");
+          a.href   = base + encodeURI(f.path);
+          a.target = "_blank";
+          a.rel    = "noopener";
+          // Nombre “bonito”
+          a.textContent = f.path.split("/").pop()
+            .replace(/\.pdf$/i,"")
+            .replace(/[_-]+/g," ");
+          li.appendChild(a);
+          ul.appendChild(li);
+        }
+      } catch (e) {
+        document.getElementById("vacio").textContent = "No se pudo cargar la lista (API rate limit o repo privado).";
+        document.getElementById("vacio").style.display = "block";
+      }
+    })();
+  </script>
 </body>
 </html>
