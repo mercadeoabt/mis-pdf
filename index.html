@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PDFs de Mercadeo ABT</title>
+  <style>
+    :root { --bg:#f7f7f8; --fg:#111; --muted:#555; --card:#fff; --border:#e5e7eb; --brand:#0a58ca; }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+    .wrap{max-width:840px;margin:48px auto;padding:0 20px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,.03)}
+    header{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+    .brand{height:52px;width:auto;display:block}
+    h1{margin:0;font-size:28px}
+    p{color:var(--muted);margin:6px 0 18px}
+    .toolbar{display:flex;gap:10px;align-items:center;margin:0 0 16px;flex-wrap:wrap}
+    .toolbar input{flex:1 1 280px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:16px}
+    .toolbar button{padding:10px 12px;border:1px solid var(--border);background:#fff;border-radius:10px;cursor:pointer}
+    .count{color:var(--muted);font-size:14px}
+    ul{list-style:none;padding:0;margin:0}
+    li{border-top:1px solid var(--border)}
+    li:first-child{border-top:0}
+    .row{display:flex;align-items:center;gap:12px;padding:10px 0}
+    .name{flex:1 1 auto;text-decoration:none;color:var(--brand);word-break:break-word}
+    .actions{display:flex;gap:8px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;text-decoration:none;color:#111}
+    .btn:hover{border-color:#cbd5e1}
+    .empty{color:var(--muted)}
+    @media (prefers-color-scheme: dark){
+      :root{--bg:#0b0b0c;--fg:#f2f2f2;--muted:#b6b6b6;--card:#121214;--border:#26262a}
+      .toolbar button,.btn{background:#151517;color:#f2f2f2}
+      .name{color:#6aa8ff}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <!-- Cambia la ruta si tu logo está en otra carpeta -->
+        <img src="logo.png" alt="mercadeoabt" class="brand" />
+        <h1>PDFs de Mercadeo ABT</h1>
+      </header>
+
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="Buscar por nombre…" />
+        <button id="clear" type="button">Limpiar</button>
+        <span class="count" id="count"></span>
+      </div>
+
+      <ul id="listado"></ul>
+      <p class="empty" id="vacio" style="display:none;">(Aún no hay PDFs públicos en este repositorio)</p>
+    </div>
+  </div>
+
+  <script>
+    function normalize(s){
+      try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+      catch { return (s || '').toLowerCase(); }
+    }
+
+    (async () => {
+      const owner  = "mercadeoabt";
+      const repo   = "mis-pdf";
+      const branch = "main";
+      const api    = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+
+      const ul    = document.getElementById("listado");
+      const empty = document.getElementById("vacio");
+      const qIn   = document.getElementById("q");
+      const clear = document.getElementById("clear");
+      const count = document.getElementById("count");
+
+      let items = []; // {name, norm, path, el}
+
+      function applyFilter(query){
+        const nq = normalize(query || "");
+        let shown = 0;
+        items.forEach(it => {
+          const match = !nq || it.norm.includes(nq);
+          it.el.style.display = match ? "" : "none";
+          if (match) shown++;
+        });
+        empty.style.display = shown ? "none" : "block";
+        count.textContent = items.length ? (shown === items.length ? `${shown} documentos` : `${shown} de ${items.length}`) : "";
+        const p = new URLSearchParams(location.search);
+        if (query) p.set("q", query); else p.delete("q");
+        history.replaceState(null, "", location.pathname + (p.toString() ? `?${p}` : ""));
+      }
+
+      try {
+        const res  = await fetch(api);
+        const data = await res.json();
+        const tree = Array.isArray(data.tree) ? data.tree : [];
+        const pdfs = tree.filter(n => n.type === "blob" && /\.pdf$/i.test(n.path))
+                         .sort((a,b) => a.path.localeCompare(b.path));
+
+        const base = location.origin + location.pathname; // https://mercadeoabt.github.io/mis-pdf/
+        for (const f of pdfs) {
+          const fileName    = f.path.split("/").pop();
+          const displayName = fileName.replace(/\.pdf$/i,"").replace(/[_-]+/g," ");
+          const viewUrl     = base + encodeURI(f.path);
+
+          const li   = document.createElement("li");
+          const row  = document.createElement("div"); row.className = "row";
+
+          // enlace para ABRIR
+          const aView = document.createElement("a");
+          aView.href = viewUrl;
+          aView.target = "_blank";
+          aView.rel = "noopener";
+          aView.className = "name";
+          aView.textContent = displayName;
+
+          // botón DESCARGAR (mismo origen + atributo download para forzar guardar)
+          const aDl = document.createElement("a");
+          aDl.href = viewUrl;
+          aDl.className = "btn";
+          aDl.setAttribute("download", fileName); // sugiere el nombre original
+          aDl.setAttribute("aria-label", `Descargar ${displayName}`);
+          aDl.textContent = "Descargar";
+
+          const actions = document.createElement("div");
+          actions.className = "actions";
+          actions.appendChild(aDl);
+
+          row.appendChild(aView);
+          row.appendChild(actions);
+          li.appendChild(row);
+          ul.appendChild(li);
+
+          items.push({ name: displayName, norm: normalize(displayName), path: f.path, el: li });
+        }
+
+        if (items.length === 0) empty.style.display = "block";
+
+        const qParam = new URLSearchParams(location.search).get("q") || "";
+        qIn.value = qParam;
+        applyFilter(qParam);
+
+        qIn.addEventListener("input", e => applyFilter(e.target.value));
+        clear.addEventListener("click", () => { qIn.value = ""; qIn.focus(); applyFilter(""); });
+      } catch (e) {
+        empty.textContent = "No se pudo cargar la lista (API rate limit o repo privado).";
+        empty.style.display = "block";
+      }
+    })();
+  </script>
+</body>
+</html>
