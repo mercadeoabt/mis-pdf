@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PDFs de mercadeoabt</title>
+  <style>
+    :root { --bg:#f7f7f8; --fg:#111; --muted:#555; --card:#fff; --border:#e5e7eb; --brand:#0a58ca; }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+    .wrap{max-width:900px;margin:48px auto;padding:0 20px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,.03)}
+    header{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+    .brand{height:52px;width:auto;display:block}
+    h1{margin:0;font-size:28px}
+    p{color:var(--muted);margin:6px 0 18px}
+    .toolbar{display:flex;gap:10px;align-items:center;margin:0 0 16px;flex-wrap:wrap}
+    .toolbar input{flex:1 1 280px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:16px}
+    .toolbar button{padding:10px 12px;border:1px solid var(--border);background:#fff;border-radius:10px;cursor:pointer}
+    .count{color:var(--muted);font-size:14px}
+    ul{list-style:none;padding:0;margin:0}
+    li{border-top:1px solid var(--border)}
+    li:first-child{border-top:0}
+    .row{display:flex;align-items:center;gap:12px;padding:10px 0}
+    .name{flex:1 1 auto;text-decoration:none;color:var(--brand);word-break:break-word}
+    .actions{display:flex;gap:8px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;text-decoration:none;color:#111}
+    .btn:hover{border-color:#cbd5e1}
+    .empty{color:var(--muted)}
+    details.admin{margin-top:16px}
+    details.admin summary{cursor:pointer;font-weight:600}
+    .admin-box{margin-top:12px;border:1px dashed var(--border);border-radius:12px;padding:16px;background:#fafafa}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid .full{grid-column:1 / -1}
+    label{font-size:13px;color:#444;display:block;margin-bottom:6px}
+    input[type="text"], input[type="password"]{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:15px}
+    .token-row{display:flex;gap:8px;align-items:center}
+    .token-row input[type="password"], .token-row input[type="text"]{flex:1 1 auto}
+    .token-row .btn{padding:8px 10px}
+    .drop{border:2px dashed #cbd5e1;border-radius:12px;padding:18px;text-align:center;color:#666}
+    .drop.drag{background:#eef6ff;border-color:#93c5fd}
+    .help{font-size:12px;color:#777;margin-top:6px}
+    .warn{color:#b45309;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px;margin-top:10px}
+    @media (prefers-color-scheme: dark){
+      :root{--bg:#0b0b0c;--fg:#f2f2f2;--muted:#b6b6b6;--card:#121214;--border:#26262a}
+      .toolbar button,.btn{background:#151517;color:#f2f2f2}
+      .name{color:#6aa8ff}
+      .admin-box{background:#151517}
+      .drop{color:#aaa;border-color:#3a3a3a}
+      .warn{background:#2a2116;border-color:#6b4d27}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <img src="logo.png" alt="mercadeoabt" class="brand" />
+        <h1>PDFs de mercadeoabt</h1>
+      </header>
+
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="Buscar por nombre…" />
+        <button id="clear" type="button">Limpiar</button>
+        <span class="count" id="count"></span>
+      </div>
+
+      <ul id="listado"></ul>
+      <p class="empty" id="vacio" style="display:none;">(Aún no hay PDFs públicos en este repositorio)</p>
+
+      <details class="admin">
+        <summary>Administración: subir PDFs</summary>
+        <div class="admin-box">
+          <div class="grid">
+            <div class="full">
+              <label>Token personal de GitHub (Fine-grained, Contents: Read/Write)</label>
+              <div class="token-row">
+                <input id="token" type="password" placeholder="ghp_… o github_pat_…" autocomplete="off">
+                <button id="toggleToken" class="btn" type="button" title="Mostrar/ocultar">Mostrar</button>
+              </div>
+              <div class="help">El token puede guardarse localmente en este navegador (localStorage). <b>No se cifra</b>. Úsalo solo en equipos de confianza.</div>
+              <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                <input id="remember" type="checkbox"> Recordar token en este navegador
+              </label>
+              <button id="forget" class="btn" type="button" style="margin-top:6px">Olvidar token</button>
+            </div>
+
+            <div>
+              <label>Carpeta opcional (ej. “folletos/”)</label>
+              <input id="folder" type="text" placeholder="(vacío = raíz)">
+            </div>
+            <div>
+              <label>Mensaje de commit</label>
+              <input id="message" type="text" placeholder="Add PDF(s) from web uploader">
+            </div>
+          </div>
+
+          <div class="drop" id="drop">
+            Arrastra tus PDF aquí o <input id="file" type="file" accept="application/pdf" multiple>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
+            <input id="overwrite" type="checkbox"> Sobrescribir si el archivo ya existe
+          </label>
+          <div class="warn">Limita tu token al repositorio <b>mercadeoabt/mis-pdf</b> con permisos <b>Contents: Read & Write</b>. Si “main” tiene protección, esta subida directa no funcionará.</div>
+          <div style="margin-top:12px;display:flex;gap:10px">
+            <button id="upload" class="btn" type="button">Subir</button>
+            <button id="refresh" class="btn" type="button">Actualizar lista</button>
+          </div>
+          <div id="log" class="help" style="margin-top:8px"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <script>
+    const owner  = "mercadeoabt";
+    const repo   = "mis-pdf";
+    const branch = "main";
+    const TOKEN_KEY = "mispdf_gh_pat";
+
+    // ---------- Utilidades ----------
+    function normalize(s){
+      try { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+      catch { return (s || '').toLowerCase(); }
+    }
+    function bufToBase64(buffer){
+      let binary = "";
+      const bytes = new Uint8Array(buffer);
+      const chunk = 0x8000;
+      for (let i=0;i<bytes.length;i+=chunk){
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+      }
+      return btoa(binary);
+    }
+    function log(msg){ document.getElementById("log").textContent = msg; }
+
+    async function copyToClipboard(text, btn){
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Fallback
+        const ta = document.createElement("textarea");
+        ta.value = text; document.body.appendChild(ta);
+        ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+      }
+      if (btn){
+        const prev = btn.textContent;
+        btn.textContent = "Copiado ✓";
+        btn.disabled = true;
+        setTimeout(()=>{ btn.textContent = prev; btn.disabled = false; }, 1500);
+      }
+    }
+
+    // ---------- Listado y filtro ----------
+    let items = []; // {name, norm, path, el}
+    const ul    = document.getElementById("listado");
+    const empty = document.getElementById("vacio");
+    const qIn   = document.getElementById("q");
+    const clear = document.getElementById("clear");
+    const count = document.getElementById("count");
+
+    function applyFilter(query){
+      const nq = normalize(query || "");
+      let shown = 0;
+      items.forEach(it => {
+        const match = !nq || it.norm.includes(nq);
+        it.el.style.display = match ? "" : "none";
+        if (match) shown++;
+      });
+      empty.style.display = shown ? "none" : "block";
+      count.textContent = items.length ? (shown === items.length ? `${shown} documentos` : `${shown} de ${items.length}`) : "";
+      const p = new URLSearchParams(location.search);
+      if (query) p.set("q", query); else p.delete("q");
+      history.replaceState(null, "", location.pathname + (p.toString() ? `?${p}` : ""));
+    }
+
+    async function loadList(){
+      ul.innerHTML = ""; items = []; count.textContent = ""; empty.style.display = "none";
+      const api = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+      const res = await fetch(api);
+      const data = await res.json();
+      const tree = Array.isArray(data.tree) ? data.tree : [];
+      const pdfs = tree.filter(n => n.type === "blob" && /\.pdf$/i.test(n.path))
+                       .sort((a,b) => a.path.localeCompare(b.path));
+
+      const base = location.origin + location.pathname; // https://mercadeoabt.github.io/mis-pdf/
+      for (const f of pdfs) {
+        const fileName    = f.path.split("/").pop();
+        const displayName = fileName.replace(/\.pdf$/i,"").replace(/[_-]+/g," ");
+        const viewUrl     = base + encodeURI(f.path);
+
+        const li   = document.createElement("li");
+        const row  = document.createElement("div"); row.className = "row";
+
+        const aView = document.createElement("a");
+        aView.href = viewUrl; aView.target = "_blank"; aView.rel = "noopener";
+        aView.className = "name"; aView.textContent = displayName;
+
+        const aDl = document.createElement("a");
+        aDl.href = viewUrl; aDl.className = "btn";
+        aDl.setAttribute("download", fileName);
+        aDl.textContent = "Descargar";
+
+        const btnCopy = document.createElement("button");
+        btnCopy.className = "btn";
+        btnCopy.type = "button";
+        btnCopy.textContent = "Copiar enlace";
+        btnCopy.addEventListener("click", () => copyToClipboard(viewUrl, btnCopy));
+
+        const actions = document.createElement("div"); actions.className = "actions";
+        actions.appendChild(btnCopy);
+        actions.appendChild(aDl);
+
+        row.appendChild(aView);
+        row.appendChild(actions);
+        li.appendChild(row);
+        ul.appendChild(li);
+
+        items.push({ name: displayName, norm: normalize(displayName), path: f.path, el: li });
+      }
+      if (items.length === 0) empty.style.display = "block";
+
+      const qParam = new URLSearchParams(location.search).get("q") || "";
+      qIn.value = qParam; applyFilter(qParam);
+    }
+
+    // ---------- Subida de PDFs (GitHub API) ----------
+    const drop = document.getElementById("drop");
+    const fileInput = document.getElementById("file");
+    const btnUpload = document.getElementById("upload");
+    const btnRefresh = document.getElementById("refresh");
+    const overwrite = document.getElementById("overwrite");
+    const tokenInput = document.getElementById("token");
+    const rememberCk = document.getElementById("remember");
+    const forgetBtn  = document.getElementById("forget");
+    const toggleBtn  = document.getElementById("toggleToken");
+
+    // Cargar token guardado (si existe)
+    (function initToken(){
+      const saved = localStorage.getItem(TOKEN_KEY);
+      if (saved){
+        tokenInput.value = saved;
+        rememberCk.checked = true;
+      }
+    })();
+
+    // Mostrar/ocultar token
+    toggleBtn.addEventListener("click", () => {
+      const isPwd = tokenInput.type === "password";
+      tokenInput.type = isPwd ? "text" : "password";
+      toggleBtn.textContent = isPwd ? "Ocultar" : "Mostrar";
+    });
+
+    // Guardar/olvidar token
+    function syncRemember(){
+      if (rememberCk.checked) {
+        localStorage.setItem(TOKEN_KEY, tokenInput.value || "");
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+      }
+    }
+    rememberCk.addEventListener("change", syncRemember);
+    tokenInput.addEventListener("input", () => { if (rememberCk.checked) syncRemember(); });
+    forgetBtn.addEventListener("click", () => {
+      localStorage.removeItem(TOKEN_KEY);
+      tokenInput.value = "";
+      rememberCk.checked = false;
+      tokenInput.type = "password";
+      toggleBtn.textContent = "Mostrar";
+      tokenInput.focus();
+      log("Token olvidado en este navegador.");
+    });
+
+    let pendingFiles = [];
+    function setDrag(on){ drop.classList.toggle("drag", !!on); }
+    if (drop){
+      drop.addEventListener("dragover", e => { e.preventDefault(); setDrag(true); });
+      drop.addEventListener("dragleave", () => setDrag(false));
+      drop.addEventListener("drop", e => {
+        e.preventDefault(); setDrag(false);
+        pendingFiles = Array.from(e.dataTransfer.files || []).filter(f => /\.pdf$/i.test(f.name));
+        if (fileInput) fileInput.files = e.dataTransfer.files;
+        log(`${pendingFiles.length} archivo(s) listo(s) para subir`);
+      });
+    }
+    if (fileInput){
+      fileInput.addEventListener("change", () => {
+        pendingFiles = Array.from(fileInput.files || []).filter(f => /\.pdf$/i.test(f.name));
+        log(`${pendingFiles.length} archivo(s) listo(s) para subir`);
+      });
+    }
+
+    async function ensureShaIfExists(path){
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}`;
+      const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" }});
+      if (res.status === 200){ const j = await res.json(); return j.sha; }
+      return null;
+    }
+
+    async function uploadFiles(){
+      const token   = tokenInput.value.trim();
+      const folder  = document.getElementById("folder").value.trim();
+      const message = (document.getElementById("message").value.trim() || "Add PDF(s) from web uploader");
+      if (!token){ log("⚠️ Falta el token."); return; }
+      if (!pendingFiles.length){ log("⚠️ No hay archivos para subir."); return; }
+
+      if (rememberCk.checked) localStorage.setItem(TOKEN_KEY, token);
+
+      for (const f of pendingFiles){
+        try {
+          const buffer = await f.arrayBuffer();
+          const b64 = bufToBase64(buffer);
+          const relPath = (folder ? folder.replace(/^\/+|\/+$/g,"") + "/" : "") + f.name;
+          const path = relPath.replace(/\/+/g,"/");
+
+          let sha = null;
+          if (overwrite.checked){
+            sha = await ensureShaIfExists(path);
+          }
+
+          const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
+          const payload = { message, content: b64, branch };
+          if (sha) payload.sha = sha;
+
+          const res = await fetch(url, {
+            method: "PUT",
+            headers: {
+              "Accept": "application/vnd.github+json",
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (res.status === 201 || res.status === 200){
+            log(`✅ Subido: ${path}`);
+          } else {
+            const err = await res.json().catch(()=>({}));
+            if (res.status === 401 || res.status === 403) {
+              log(`❌ Permiso denegado. Revisa el token/permisos (Contents: Read & Write en ${owner}/${repo}).`);
+              return;
+            }
+            if (res.status === 422 && !overwrite.checked){
+              log(`⚠️ Ya existe: ${path}. Activa "Sobrescribir" si deseas reemplazar.`);
+            } else {
+              log(`❌ Error ${res.status} al subir ${path}: ${err.message || "desconocido"}`);
+            }
+          }
+        } catch (e){
+          log(`❌ Falló ${f.name}: ${e.message}`);
+        }
+      }
+      await loadList();
+      log("✔️ Operación finalizada.");
+    }
+
+    document.getElementById("upload")?.addEventListener("click", uploadFiles);
+    document.getElementById("refresh")?.addEventListener("click", loadList);
+    qIn.addEventListener("input", e => applyFilter(e.target.value));
+    clear.addEventListener("click", () => { qIn.value = ""; qIn.focus(); applyFilter(""); });
+
+    // Inicio
+    (async () => { await loadList(); })();
+  </script>
+</body>
+</html>
