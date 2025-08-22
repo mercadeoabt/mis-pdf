@@ -17,10 +17,13 @@
     .toolbar input{flex:1 1 280px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:16px}
     .toolbar button{padding:10px 12px;border:1px solid var(--border);background:#fff;border-radius:10px;cursor:pointer}
     .count{color:var(--muted);font-size:14px}
+    .mass{display:flex;gap:10px;align-items:center;margin:0 0 14px;flex-wrap:wrap}
+    .mass .chk{display:flex;align-items:center;gap:8px;color:#333}
     ul{list-style:none;padding:0;margin:0}
     li{border-top:1px solid var(--border)}
     li:first-child{border-top:0}
     .row{display:flex;align-items:center;gap:12px;padding:10px 0}
+    .sel{margin-right:4px;min-width:18px;min-height:18px}
     .name{flex:1 1 auto;text-decoration:none;color:var(--brand);word-break:break-word}
     .actions{display:flex;gap:8px}
     .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;text-decoration:none;color:#111}
@@ -64,20 +67,26 @@
         <span class="count" id="count"></span>
       </div>
 
+      <div class="mass">
+        <label class="chk"><input type="checkbox" id="selectAll"> Seleccionar todo</label>
+        <button id="deleteSel" class="btn" type="button" title="Borrar directo (main)">Borrar seleccionados</button>
+        <button id="deleteSelPR" class="btn" type="button" title="Borrar mediante PR">Borrar mediante PR</button>
+      </div>
+
       <ul id="listado"></ul>
       <p class="empty" id="vacio" style="display:none;">(Aún no hay PDFs públicos en este repositorio)</p>
 
       <details class="admin">
-        <summary>Administración: subir PDFs</summary>
+        <summary>Administración: subir/borrar</summary>
         <div class="admin-box">
           <div class="grid">
             <div class="full">
-              <label>Token personal de GitHub (Fine-grained, Contents: Read/Write)</label>
+              <label>Token personal de GitHub (Fine-grained)</label>
               <div class="token-row">
                 <input id="token" type="password" placeholder="ghp_… o github_pat_…" autocomplete="off">
                 <button id="toggleToken" class="btn" type="button" title="Mostrar/ocultar">Mostrar</button>
               </div>
-              <div class="help">El token puede guardarse localmente en este navegador (localStorage). <b>No se cifra</b>. Úsalo solo en equipos de confianza.</div>
+              <div class="help">Permisos mínimos: <b>Contents: Read & Write</b>. Para PR: <b>Pull requests: Read & Write</b>. Puedes guardarlo en este navegador (localStorage).</div>
               <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
                 <input id="remember" type="checkbox"> Recordar token en este navegador
               </label>
@@ -85,12 +94,21 @@
             </div>
 
             <div>
-              <label>Carpeta opcional (ej. “folletos/”)</label>
+              <label>Carpeta opcional (subida, ej. “folletos/”)</label>
               <input id="folder" type="text" placeholder="(vacío = raíz)">
             </div>
             <div>
-              <label>Mensaje de commit</label>
+              <label>Mensaje de commit (subida)</label>
               <input id="message" type="text" placeholder="Add PDF(s) from web uploader">
+            </div>
+
+            <div>
+              <label>Mensaje de commit (borrado)</label>
+              <input id="delMessage" type="text" placeholder="Delete selected PDF(s) from web">
+            </div>
+            <div>
+              <label>Título del PR (opcional)</label>
+              <input id="prTitle" type="text" placeholder="Delete selected PDFs">
             </div>
           </div>
 
@@ -100,8 +118,10 @@
           <label style="display:flex;align-items:center;gap:8px;margin-top:10px">
             <input id="overwrite" type="checkbox"> Sobrescribir si el archivo ya existe
           </label>
-          <div class="warn">Limita tu token al repositorio <b>mercadeoabt/mis-pdf</b> con permisos <b>Contents: Read & Write</b>. Si “main” tiene protección, esta subida directa no funcionará.</div>
-          <div style="margin-top:12px;display:flex;gap:10px">
+          <div class="warn">
+            Repo: <b>mercadeoabt/mis-pdf</b>. Si <b>main</b> tiene protección, usa <b>Borrar mediante PR</b>.
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
             <button id="upload" class="btn" type="button">Subir</button>
             <button id="refresh" class="btn" type="button">Actualizar lista</button>
           </div>
@@ -132,26 +152,24 @@
       return btoa(binary);
     }
     function log(msg){ document.getElementById("log").textContent = msg; }
-
     async function copyToClipboard(text, btn){
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch {
-        // Fallback
+      try { await navigator.clipboard.writeText(text); }
+      catch {
         const ta = document.createElement("textarea");
-        ta.value = text; document.body.appendChild(ta);
-        ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand("copy"); document.body.removeChild(ta);
       }
       if (btn){
-        const prev = btn.textContent;
-        btn.textContent = "Copiado ✓";
-        btn.disabled = true;
-        setTimeout(()=>{ btn.textContent = prev; btn.disabled = false; }, 1500);
+        const prev = btn.textContent; btn.textContent = "Copiado ✓";
+        btn.disabled = true; setTimeout(()=>{ btn.textContent = prev; btn.disabled = false; }, 1500);
       }
+    }
+    function tsBranch(){ const d=new Date(); const p=n=>String(n).padStart(2,"0");
+      return `delete-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
     }
 
     // ---------- Listado y filtro ----------
-    let items = []; // {name, norm, path, el}
+    let items = []; // {name, norm, path, el, chk}
     const ul    = document.getElementById("listado");
     const empty = document.getElementById("vacio");
     const qIn   = document.getElementById("q");
@@ -191,31 +209,35 @@
         const li   = document.createElement("li");
         const row  = document.createElement("div"); row.className = "row";
 
+        // checkbox selección
+        const chk = document.createElement("input");
+        chk.type = "checkbox"; chk.className = "sel"; chk.title = "Seleccionar";
+
+        // enlace para abrir
         const aView = document.createElement("a");
         aView.href = viewUrl; aView.target = "_blank"; aView.rel = "noopener";
         aView.className = "name"; aView.textContent = displayName;
+
+        // acciones: copiar/descargar
+        const btnCopy = document.createElement("button");
+        btnCopy.className = "btn"; btnCopy.type = "button"; btnCopy.textContent = "Copiar enlace";
+        btnCopy.addEventListener("click", () => copyToClipboard(viewUrl, btnCopy));
 
         const aDl = document.createElement("a");
         aDl.href = viewUrl; aDl.className = "btn";
         aDl.setAttribute("download", fileName);
         aDl.textContent = "Descargar";
 
-        const btnCopy = document.createElement("button");
-        btnCopy.className = "btn";
-        btnCopy.type = "button";
-        btnCopy.textContent = "Copiar enlace";
-        btnCopy.addEventListener("click", () => copyToClipboard(viewUrl, btnCopy));
-
         const actions = document.createElement("div"); actions.className = "actions";
-        actions.appendChild(btnCopy);
-        actions.appendChild(aDl);
+        actions.appendChild(btnCopy); actions.appendChild(aDl);
 
+        row.appendChild(chk);
         row.appendChild(aView);
         row.appendChild(actions);
         li.appendChild(row);
         ul.appendChild(li);
 
-        items.push({ name: displayName, norm: normalize(displayName), path: f.path, el: li });
+        items.push({ name: displayName, norm: normalize(displayName), path: f.path, el: li, chk });
       }
       if (items.length === 0) empty.style.display = "block";
 
@@ -223,7 +245,7 @@
       qIn.value = qParam; applyFilter(qParam);
     }
 
-    // ---------- Subida de PDFs (GitHub API) ----------
+    // ---------- Token, subida y utilidades GitHub ----------
     const drop = document.getElementById("drop");
     const fileInput = document.getElementById("file");
     const btnUpload = document.getElementById("upload");
@@ -233,61 +255,46 @@
     const rememberCk = document.getElementById("remember");
     const forgetBtn  = document.getElementById("forget");
     const toggleBtn  = document.getElementById("toggleToken");
+    const delMsgIn   = document.getElementById("delMessage");
+    const prTitleIn  = document.getElementById("prTitle");
 
-    // Cargar token guardado (si existe)
+    // Cargar token guardado
     (function initToken(){
       const saved = localStorage.getItem(TOKEN_KEY);
-      if (saved){
-        tokenInput.value = saved;
-        rememberCk.checked = true;
-      }
+      if (saved){ tokenInput.value = saved; rememberCk.checked = true; }
     })();
-
-    // Mostrar/ocultar token
     toggleBtn.addEventListener("click", () => {
       const isPwd = tokenInput.type === "password";
       tokenInput.type = isPwd ? "text" : "password";
       toggleBtn.textContent = isPwd ? "Ocultar" : "Mostrar";
     });
-
-    // Guardar/olvidar token
     function syncRemember(){
-      if (rememberCk.checked) {
-        localStorage.setItem(TOKEN_KEY, tokenInput.value || "");
-      } else {
-        localStorage.removeItem(TOKEN_KEY);
-      }
+      if (rememberCk.checked) localStorage.setItem(TOKEN_KEY, tokenInput.value || "");
+      else localStorage.removeItem(TOKEN_KEY);
     }
     rememberCk.addEventListener("change", syncRemember);
     tokenInput.addEventListener("input", () => { if (rememberCk.checked) syncRemember(); });
     forgetBtn.addEventListener("click", () => {
       localStorage.removeItem(TOKEN_KEY);
-      tokenInput.value = "";
-      rememberCk.checked = false;
-      tokenInput.type = "password";
-      toggleBtn.textContent = "Mostrar";
-      tokenInput.focus();
-      log("Token olvidado en este navegador.");
+      tokenInput.value = ""; rememberCk.checked = false;
+      tokenInput.type = "password"; toggleBtn.textContent = "Mostrar";
+      tokenInput.focus(); log("Token olvidado en este navegador.");
     });
 
     let pendingFiles = [];
-    function setDrag(on){ drop.classList.toggle("drag", !!on); }
-    if (drop){
-      drop.addEventListener("dragover", e => { e.preventDefault(); setDrag(true); });
-      drop.addEventListener("dragleave", () => setDrag(false));
-      drop.addEventListener("drop", e => {
-        e.preventDefault(); setDrag(false);
-        pendingFiles = Array.from(e.dataTransfer.files || []).filter(f => /\.pdf$/i.test(f.name));
-        if (fileInput) fileInput.files = e.dataTransfer.files;
-        log(`${pendingFiles.length} archivo(s) listo(s) para subir`);
-      });
-    }
-    if (fileInput){
-      fileInput.addEventListener("change", () => {
-        pendingFiles = Array.from(fileInput.files || []).filter(f => /\.pdf$/i.test(f.name));
-        log(`${pendingFiles.length} archivo(s) listo(s) para subir`);
-      });
-    }
+    function setDrag(on){ drop?.classList.toggle("drag", !!on); }
+    drop?.addEventListener("dragover", e => { e.preventDefault(); setDrag(true); });
+    drop?.addEventListener("dragleave", () => setDrag(false));
+    drop?.addEventListener("drop", e => {
+      e.preventDefault(); setDrag(false);
+      pendingFiles = Array.from(e.dataTransfer.files || []).filter(f => /\.pdf$/i.test(f.name));
+      if (fileInput) fileInput.files = e.dataTransfer.files;
+      log(`${pendingFiles.length} archivo(s) listo(s) para subir`);
+    });
+    fileInput?.addEventListener("change", () => {
+      pendingFiles = Array.from(fileInput.files || []).filter(f => /\.pdf$/i.test(f.name));
+      log(`${pendingFiles.length} archivo(s) listo(s) para subir`);
+    });
 
     async function ensureShaIfExists(path){
       const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}`;
@@ -295,14 +302,40 @@
       if (res.status === 200){ const j = await res.json(); return j.sha; }
       return null;
     }
+    async function getHeadSha(b){
+      const url = `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(b)}`;
+      const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" }});
+      if (!res.ok) throw new Error(`No se pudo obtener head de ${b}`);
+      const j = await res.json();
+      // GitHub devuelve {object: {sha: ...}}
+      return j.object?.sha || j.sha || null;
+    }
+    async function createBranch(token, newBranch, fromSha){
+      const url = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Accept":"application/vnd.github+json", "Authorization":`Bearer ${token}`, "Content-Type":"application/json" },
+        body: JSON.stringify({ ref: `refs/heads/${newBranch}`, sha: fromSha })
+      });
+      if (res.status === 201) return true;
+      if (res.status === 422) return false; // ya existe
+      const err = await res.json().catch(()=>({})); throw new Error(err.message || `Error ${res.status} creando rama`);
+    }
+    async function getContentShaRef(path, refBranch){
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(refBranch)}`;
+      const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" }});
+      if (!res.ok) return null;
+      const j = await res.json();
+      return j.sha || null;
+    }
 
+    // ---------- Subir ----------
     async function uploadFiles(){
       const token   = tokenInput.value.trim();
       const folder  = document.getElementById("folder").value.trim();
       const message = (document.getElementById("message").value.trim() || "Add PDF(s) from web uploader");
       if (!token){ log("⚠️ Falta el token."); return; }
       if (!pendingFiles.length){ log("⚠️ No hay archivos para subir."); return; }
-
       if (rememberCk.checked) localStorage.setItem(TOKEN_KEY, token);
 
       for (const f of pendingFiles){
@@ -313,9 +346,7 @@
           const path = relPath.replace(/\/+/g,"/");
 
           let sha = null;
-          if (overwrite.checked){
-            sha = await ensureShaIfExists(path);
-          }
+          if (overwrite.checked){ sha = await ensureShaIfExists(path); }
 
           const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`;
           const payload = { message, content: b64, branch };
@@ -335,26 +366,146 @@
             log(`✅ Subido: ${path}`);
           } else {
             const err = await res.json().catch(()=>({}));
-            if (res.status === 401 || res.status === 403) {
-              log(`❌ Permiso denegado. Revisa el token/permisos (Contents: Read & Write en ${owner}/${repo}).`);
-              return;
-            }
-            if (res.status === 422 && !overwrite.checked){
-              log(`⚠️ Ya existe: ${path}. Activa "Sobrescribir" si deseas reemplazar.`);
-            } else {
-              log(`❌ Error ${res.status} al subir ${path}: ${err.message || "desconocido"}`);
-            }
+            if (res.status === 401 || res.status === 403) { log(`❌ Permiso denegado.`); return; }
+            if (res.status === 422 && !overwrite.checked){ log(`⚠️ Ya existe: ${path}. Activa "Sobrescribir".`); }
+            else { log(`❌ Error ${res.status} al subir ${path}: ${err.message || "desconocido"}`); }
           }
-        } catch (e){
-          log(`❌ Falló ${f.name}: ${e.message}`);
-        }
+        } catch (e){ log(`❌ Falló ${f.name}: ${e.message}`); }
       }
       await loadList();
       log("✔️ Operación finalizada.");
     }
 
+    // ---------- Borrado directo ----------
+    async function getContentSha(path){
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${branch}`;
+      const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" }});
+      if (!res.ok) return null;
+      const j = await res.json();
+      return j.sha || null;
+    }
+    async function deleteSelectedDirect(){
+      const token = tokenInput.value.trim();
+      if (!token){ log("⚠️ Falta el token para borrar."); return; }
+      const selected = items.filter(it => it.chk.checked);
+      if (!selected.length){ log("⚠️ No hay archivos seleccionados."); return; }
+
+      const names = selected.map(it => it.path).join("\n");
+      const ok = confirm(`Vas a borrar ${selected.length} archivo(s) en main:\n\n${names}\n\n¿Confirmas?`);
+      if (!ok) return;
+
+      const message = (delMsgIn.value.trim() || "Delete selected PDF(s) from web");
+      for (const it of selected){
+        try {
+          const sha = await getContentSha(it.path);
+          if (!sha){ log(`❌ No se pudo obtener SHA de ${it.path}`); continue; }
+          const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(it.path)}`;
+          const res = await fetch(url, {
+            method: "DELETE",
+            headers: {
+              "Accept": "application/vnd.github+json",
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message, sha, branch })
+          });
+          if (res.status === 200){
+            log(`🗑️ Borrado: ${it.path}`);
+          } else {
+            const err = await res.json().catch(()=>({}));
+            if (res.status === 401 || res.status === 403) { log(`❌ Permiso denegado al borrar ${it.path}.`); return; }
+            log(`❌ Error ${res.status} al borrar ${it.path}: ${err.message || "desconocido"}`);
+          }
+        } catch (e){ log(`❌ Falló borrar ${it.path}: ${e.message}`); }
+      }
+      await loadList();
+      document.getElementById("selectAll").checked = false;
+      log("✔️ Borrado finalizado.");
+    }
+
+    // ---------- Borrado mediante PR ----------
+    async function deleteSelectedPR(){
+      const token = tokenInput.value.trim();
+      if (!token){ log("⚠️ Falta el token para borrar por PR."); return; }
+      const selected = items.filter(it => it.chk.checked);
+      if (!selected.length){ log("⚠️ No hay archivos seleccionados."); return; }
+
+      const names = selected.map(it => it.path).join("\n");
+      const ok = confirm(`Se creará una rama y un Pull Request borrando ${selected.length} archivo(s):\n\n${names}\n\n¿Confirmas?`);
+      if (!ok) return;
+
+      try {
+        const headSha = await getHeadSha(branch);
+        let newBranch = tsBranch();
+        const created = await createBranch(token, newBranch, headSha);
+        if (!created){
+          // si ya existe, prueba con sufijo aleatorio
+          newBranch = `${newBranch}-${Math.random().toString(36).slice(2,7)}`;
+          await createBranch(token, newBranch, headSha);
+        }
+
+        // borrar archivos en la rama nueva
+        const delMsg = (delMsgIn.value.trim() || "Delete selected PDF(s) from web");
+        for (const it of selected){
+          const shaRef = await getContentShaRef(it.path, newBranch);
+          if (!shaRef){ log(`❌ No se pudo obtener SHA de ${it.path} en rama ${newBranch}`); continue; }
+          const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(it.path)}`;
+          const res = await fetch(url, {
+            method: "DELETE",
+            headers: {
+              "Accept": "application/vnd.github+json",
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message: delMsg, sha: shaRef, branch: newBranch })
+          });
+          if (res.status === 200){
+            log(`🗑️ (rama ${newBranch}) Borrado: ${it.path}`);
+          } else {
+            const err = await res.json().catch(()=>({}));
+            log(`❌ Error ${res.status} al borrar ${it.path} en ${newBranch}: ${err.message || "desconocido"}`);
+          }
+        }
+
+        // crear el PR
+        const prTitle = prTitleIn.value.trim() || `Delete ${selected.length} PDF(s)`;
+        const prBody  = `Archivos eliminados:\n\n${selected.map(s => `- \`${s.path}\``).join("\n")}\n\nGenerado desde página pública.`;
+        const prUrl = `https://api.github.com/repos/${owner}/${repo}/pulls`;
+        const prRes = await fetch(prUrl, {
+          method: "POST",
+          headers: { "Accept":"application/vnd.github+json", "Authorization":`Bearer ${token}`, "Content-Type":"application/json" },
+          body: JSON.stringify({ title: prTitle, head: newBranch, base: branch, body: prBody })
+        });
+
+        if (prRes.status === 201){
+          const pr = await prRes.json();
+          log(`✅ PR creado: ${pr.html_url}`);
+          // Opcional: abrir el PR en nueva pestaña
+          window.open(pr.html_url, "_blank");
+        } else {
+          const err = await prRes.json().catch(()=>({}));
+          log(`❌ No se pudo crear el PR: ${err.message || ("HTTP "+prRes.status)}`);
+        }
+
+        await loadList();
+        document.getElementById("selectAll").checked = false;
+      } catch (e){
+        log(`❌ Error creando PR: ${e.message}`);
+      }
+    }
+
+    // Botones / Listeners
     document.getElementById("upload")?.addEventListener("click", uploadFiles);
     document.getElementById("refresh")?.addEventListener("click", loadList);
+    document.getElementById("deleteSel")?.addEventListener("click", deleteSelectedDirect);
+    document.getElementById("deleteSelPR")?.addEventListener("click", deleteSelectedPR);
+
+    const selAll = document.getElementById("selectAll");
+    selAll.addEventListener("change", () => {
+      const checked = selAll.checked;
+      items.forEach(it => { if (it.el.style.display !== "none") it.chk.checked = checked; });
+    });
+
     qIn.addEventListener("input", e => applyFilter(e.target.value));
     clear.addEventListener("click", () => { qIn.value = ""; qIn.focus(); applyFilter(""); });
 
